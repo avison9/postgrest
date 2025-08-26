@@ -39,3 +39,7 @@ ALTER TABLE _supavisor.tenants ADD COLUMN pg_version TEXT; -- From 2023060112555
 ALTER TABLE _supavisor.tenants ADD COLUMN ip_version TEXT; -- From 20230619091028_add_tenant_ip_version.exs
 ALTER TABLE _supavisor.tenants ADD COLUMN upstream_ssl JSONB; -- From 20230705154938_add_upstream_ssl_opts.exs
 ALTER TABLE _supavisor.tenants ADD COLUMN enforce_ssl BOOLEAN DEFAULT FALSE; -- From 20230711142028_add_enforce_ssl.exs
+
+
+
+ALTER DATABASE supavisor_meta SET idle_in_transaction_session_timeout = '5min';
