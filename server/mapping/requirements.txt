@@ -3,3 +3,5 @@ uvicorn
 httpx 
 boto3
 asyncpg
+aiohttp
+

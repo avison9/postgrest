@@ -14,10 +14,10 @@ output "mapper_service_name" {
   value       = module.postgrest.mapper_service_name
 }
 
-output "postgrest_service_names" {
-  description = "Names of the PostgREST services"
-  value       = module.postgrest.postgrest_service_names
-}
+# output "postgrest_service_names" {
+#   description = "Names of the PostgREST services"
+#   value       = module.postgrest.postgrest_service_names
+# }
 
 output "postgres_subnet_ids" {
   description = "IDs of the PostgreSQL subnets"

@@ -1,0 +1,26 @@
+To manually add the Terraform-created security group (${var.environment}-postgrest-rds-sg) to your existing RDS instance using AWS CLI,follow these steps.
+This assumes AWS CLI is installed and configured with credentials that have RDS modify permissions. 
+Replace placeholders like <your-rds-identifier> with actual values.
+
+Identify your RDS instance identifier: This is the name you gave your RDS instance (e.g., "database-run"). 
+
+If unsure, run:
+    !!! aws rds describe-db-instances --query "DBInstances[].DBInstanceIdentifier"!!!
+Note the one matching your var.rds_endpoint.
+
+Get the ID of the new security group: From Terraform output (after terraform apply), look for rds_sg ID (e.g., "sg-0abc123def456"). Or query it:
+    !!! aws ec2 describe-security-groups --filters "Name=group-name,Values=dev-postgrest-rds-sg" --query "SecurityGroups[0].GroupId" --output text !!!
+
+Get the current security groups on the RDS instance: To avoid overwriting existing ones, fetch them:
+    !!! aws rds describe-db-instances --db-instance-identifier database-run --query "DBInstances[0].VpcSecurityGroups[].VpcSecurityGroupId" --output text !!!
+
+This outputs a space-separated list (e.g., "sg-existing1 sg-existing2").
+
+Modify the RDS instance to add the security group: Append the new SG ID to the list from step 3, then run:
+    !!! aws rds modify-db-instance --db-instance-identifier <your-rds-identifier> --vpc-security-group-ids sg-existing1 sg-existing2 <new-sg-id> --apply-immediately!!!
+
+--apply-immediately applies changes now (may cause brief downtime); omit for next maintenance window.
+Wait for the command to complete (check status with aws rds describe-db-instances --db-instance-identifier <your-rds-identifier> --query "DBInstances[0].DBInstanceStatus" until "available").
+
+
+Verify the update: Run the command from step 3 again to confirm the new SG is listed.
