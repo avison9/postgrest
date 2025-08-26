@@ -74,12 +74,40 @@ async def ensure_tenant(db_name: str):
                         "ip_version": "auto",
                         "enforce_ssl": False,
                         "require_user": True,
+                        "upstream_ssl": True,
+                        "upstream_verify": "peer",
                         "auth_query": "SELECT username, password FROM auth_credentials WHERE username = $1",
+                        "upstream_tls_ca": """-----BEGIN CERTIFICATE-----
+MIIEADCCAuigAwIBAgIQYjbPSg4+RNRD3zNxO1fuKDANBgkqhkiG9w0BAQsFADCB
+mDELMAkGA1UEBhMCVVMxIjAgBgNVBAoMGUFtYXpvbiBXZWIgU2VydmljZXMsIElu
+Yy4xEzARBgNVBAsMCkFtYXpvbiBSRFMxCzAJBgNVBAgMAldBMTEwLwYDVQQDDChB
+bWF6b24gUkRTIGV1LW5vcnRoLTEgUm9vdCBDQSBSU0EyMDQ4IEcxMRAwDgYDVQQH
+DAdTZWF0dGxlMCAXDTIxMDUyNDIwNTkyMVoYDzIwNjEwNTI0MjE1OTIxWjCBmDEL
+MAkGA1UEBhMCVVMxIjAgBgNVBAoMGUFtYXpvbiBXZWIgU2VydmljZXMsIEluYy4x
+EzARBgNVBAsMCkFtYXpvbiBSRFMxCzAJBgNVBAgMAldBMTEwLwYDVQQDDChBbWF6
+b24gUkRTIGV1LW5vcnRoLTEgUm9vdCBDQSBSU0EyMDQ4IEcxMRAwDgYDVQQHDAdT
+ZWF0dGxlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA179eQHxcV0YL
+XMkqEmhSBazHhnRVd8yICbMq82PitE3BZcnv1Z5Zs/oOgNmMkOKae4tCXO/41JCX
+wAgbs/eWWi+nnCfpQ/FqbLPg0h3dqzAgeszQyNl9IzTzX4Nd7JFRBVJXPIIKzlRf
++GmFsAhi3rYgDgO27pz3ciahVSN+CuACIRYnA0K0s9lhYdddmrW/SYeWyoB7jPa2
+LmWpAs7bDOgS4LlP2H3eFepBPgNufRytSQUVA8f58lsE5w25vNiUSnrdlvDrIU5n
+Qwzc7NIZCx4qJpRbSKWrUtbyJriWfAkGU7i0IoainHLn0eHp9bWkwb9D+C/tMk1X
+ERZw2PDGkwIDAQABo0IwQDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSFmR7s
+dAblusFN+xhf1ae0KUqhWTAOBgNVHQ8BAf8EBAMCAYYwDQYJKoZIhvcNAQELBQAD
+ggEBAHsXOpjPMyH9lDhPM61zYdja1ebcMVgfUvsDvt+w0xKMKPhBzYDMs/cFOi1N
+Q8LV79VNNfI2NuvFmGygcvTIR+4h0pqqZ+wjWl3Kk5jVxCrbHg3RBX02QLumKd/i
+kwGcEtTUvTssn3SM8bgM0/1BDXgImZPC567ciLvWDo0s/Fe9dJJC3E0G7d/4s09n
+OMdextcxFuWBZrBm/KK3QF0ByA8MG3//VXaGO9OIeeOJCpWn1G1PjT1UklYhkg61
+EbsTiZVA2DLd1BGzfU4o4M5mo68l0msse/ndR1nEY6IywwpgIFue7+rEleDh6b9d
+PYkG1rHVw2I0XDG4o17aOn5E94I=
+-----END CERTIFICATE-----""",
+                        "default_max_clients": 50,
+                        "default_pool_size": 3,
                         "users": [
                             {
                                 "db_user": rds_user,
                                 "db_password": rds_pass,
-                                "pool_size": 20,
+                                "pool_size": 3,
                                 "mode_type": "transaction",
                                 "is_manager": False
                             }
@@ -91,15 +119,13 @@ async def ensure_tenant(db_name: str):
                     "Authorization": f"Bearer {bearer_token}",
                     "Content-Type": "application/json"
                 }
-                async with session.put(f"http://{SUPAVISOR_HOST}/api/tenants/{db_name}", json=payload, headers=headers) as response:
+                async with session.put(f"http://{SUPAVISOR_HOST}:4000/api/tenants/{db_name}", json=payload, headers=headers) as response:
                     if response.status not in (200, 201):
                         raise Exception(f"Failed to register tenant {db_name}: {await response.text()}")
-
             # Step 2: Set up auth_credentials table
             try:
-                rds_conn = await asyncpg.connect(f"postgresql://{rds_user}:{rds_pass}@{rds_host}:{rds_port}/{db_name}")
+                rds_conn = await asyncpg.connect(f"postgresql://{rds_user}:{rds_pass}@{rds_host}:{rds_port}/{db_name}?sslmode=require")
                 try:
-                    # Create table
                     await rds_conn.execute("""
                         CREATE TABLE IF NOT EXISTS auth_credentials (
                             username text PRIMARY KEY,
@@ -107,22 +133,20 @@ async def ensure_tenant(db_name: str):
                             external_id text NOT NULL
                         )
                     """)
-                    # Insert credentials
                     await rds_conn.execute("""
                         INSERT INTO auth_credentials (username, password, external_id)
                         VALUES ($1, $2, $3)
                         ON CONFLICT (username) DO UPDATE SET password = EXCLUDED.password, external_id = EXCLUDED.external_id
                     """, rds_user, rds_pass, db_name)
-                    # Grant permissions
                     await rds_conn.execute("GRANT ALL ON auth_credentials TO postgres")
                     logger.info(f"auth_credentials table created and populated successfully in database {db_name}")
                 finally:
                     await rds_conn.close()
             except asyncpg.PostgresError as e:
                 raise Exception(f"Failed to set up auth_credentials for {db_name}: {str(e)}")
-
     finally:
         await conn.close()
+
 
 # Health Check
 @app.get("/health")
@@ -159,7 +183,7 @@ async def oraion_to_supavisor(request: Request, table_name: str):
   rds_user = get_secret(META_SECRET_ARN).get("username")
 
   rds_direct =  f"postgresql://{rds_user}:{db_pass}@{RDS_HOST}:5432/{db_name}?sslmode=require"
-  dsn = f"postgresql://{rds_user}.{db_name}:{db_pass}@{SUPAVISOR_HOST}:6543/{db_name}?sslmode=disable"
+  dsn = f"postgresql://{rds_user}.{db_name}:{db_pass}@{SUPAVISOR_HOST}:6543/{db_name}"
 
   conn = await asyncpg.connect(dsn)
   print(f"Connecting with DSN: {dsn}")
