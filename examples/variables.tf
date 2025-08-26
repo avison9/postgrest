@@ -133,3 +133,8 @@ variable "meta_hash_arn" {
   description = "ARN of the existing Secrets Manager secret for password Hash"
   type        = string
 }
+
+variable "supa_secret_arn" {
+  description = "ARN of the existing Secrets Manager secret for password Hash"
+  type        = string
+}

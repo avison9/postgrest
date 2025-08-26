@@ -1,32 +1,21 @@
-# FROM alpine:latest
-
-# # Install dependencies
-# RUN apk add --no-cache curl jq aws-cli
-
-# # (Optional) Install bash if you're keeping #!/bin/bash
-# # RUN apk add --no-cache bash
-
-# # Install PostgREST binary
-# RUN curl -L -o /usr/local/bin/postgrest https://github.com/PostgREST/postgrest/releases/latest/download/postgrest.x86_64 \
-#     && chmod +x /usr/local/bin/postgrest
-
-# # Copy and prepare entrypoint
-# COPY entrypoint.sh /entrypoint.sh
-# RUN chmod +x /entrypoint.sh
-
-# ENTRYPOINT ["/entrypoint.sh"]
-
 FROM debian:bookworm-slim
 
 # Install dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl jq awscli ca-certificates && \
+    apt-get install -y --no-install-recommends curl jq awscli ca-certificates xz-utils && \
     rm -rf /var/lib/apt/lists/*
 
-# Download PostgREST (use specific version for stability)
+# Download and verify PostgREST
 ARG POSTGREST_VERSION=v12.2.3
-RUN curl -L -o /usr/local/bin/postgrest https://github.com/PostgREST/postgrest/releases/download/${POSTGREST_VERSION}/postgrest-${POSTGREST_VERSION}-linux-static-x64 \
-    && chmod +x /usr/local/bin/postgrest
+RUN curl -L -o /usr/local/bin/postgrest.tar.xz https://github.com/PostgREST/postgrest/releases/download/${POSTGREST_VERSION}/postgrest-${POSTGREST_VERSION}-linux-static-x64.tar.xz \
+    && tar -xJf /usr/local/bin/postgrest.tar.xz -C /usr/local/bin \
+    && rm /usr/local/bin/postgrest.tar.xz \
+    && chmod +x /usr/local/bin/postgrest \
+    && /usr/local/bin/postgrest --version
+
+# Copy and register RDS CA certificate
+COPY eu-north-1-bundle.pem /usr/local/share/ca-certificates/rds-ca.pem
+RUN update-ca-certificates
 
 # Copy entrypoint
 COPY start.sh /start.sh

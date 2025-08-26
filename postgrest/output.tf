@@ -14,10 +14,10 @@ output "mapper_service_name" {
   value       = aws_ecs_service.mapper_service.name
 }
 
-output "postgrest_service_names" {
-  description = "Names of the PostgREST services"
-  value       = aws_ecs_service.postgrest_service[*].name
-}
+# output "postgrest_service_names" {
+#   description = "Names of the PostgREST services"
+#   value       = aws_ecs_service.postgrest_service[*].name
+# }
 
 output "postgres_subnet_ids" {
   description = "IDs of the PostgreSQL subnets"

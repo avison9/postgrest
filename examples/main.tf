@@ -22,5 +22,6 @@ module "postgrest" {
   postgrest_image_tag     = var.postgrest_image_tag
   config_url              = var.config_url
   meta_secret_arn         = var.meta_secret_arn
-  meta_hash_arn           = var.meta_hash_arn 
+  meta_hash_arn           = var.meta_hash_arn
+  supa_secret_arn         = var.supa_secret_arn
 }
