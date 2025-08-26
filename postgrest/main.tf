@@ -941,7 +941,7 @@ resource "aws_ecs_task_definition" "mapper_task" {
         { name = "SUPA_KEY_ARN", value = var.supa_secret_arn },
         { name = "META_HOST", value = var.rds_endpoint },
         { name = "ALB_DNS_NAME", value = aws_lb.main_alb.dns_name },
-        { name = "SUPAVISOR_HOST", value = "${aws_lb.supavisor_nlb.dns_name}:4000" }  # Use port 4000 for API
+        { name = "SUPAVISOR_HOST", value = "${aws_lb.supavisor_nlb.dns_name}" }  # Use port 4000 for API
       ],
       logConfiguration = {
         logDriver = "awslogs",
